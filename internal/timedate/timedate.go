@@ -6,15 +6,16 @@
 // system where PID 1 is sinit and services are driven by atomctl.
 package timedate
 
-const (
+var (
 	// LocaltimePath is the symlink the kernel-agnostic libc reads for the
 	// local timezone.
 	LocaltimePath = "/etc/localtime"
 	// TimezonePath holds the canonical zone name in plain text.
 	TimezonePath = "/etc/timezone"
-	// ZoneinfoDir is the tzdata database root.
-	ZoneinfoDir = "/usr/share/zoneinfo"
 )
+
+// ZoneinfoDir is the tzdata database root.
+const ZoneinfoDir = "/usr/share/zoneinfo"
 
 // ConfigPath persists sinty-timedate's own settings (currently only the
 // local-RTC preference, which nothing else on the system records). It is a var
