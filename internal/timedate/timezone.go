@@ -14,9 +14,17 @@ import (
 // symlink target, then /etc/timezone, then a scan of zoneinfo for a file whose
 // contents match /etc/localtime. It returns "n/a" when nothing resolves.
 func CurrentZone() string {
-	if target, err := os.Readlink(LocaltimePath); err == nil {
+	link := zoneLink()
+	if target, err := os.Readlink(link); err == nil {
 		if z := zoneFromPath(target); z != "" {
 			return z
+		}
+	}
+	if link != LocaltimePath {
+		if data, err := os.ReadFile(filepath.Join(filepath.Dir(link), "timezone")); err == nil {
+			if z := strings.TrimSpace(string(data)); z != "" {
+				return z
+			}
 		}
 	}
 	if data, err := os.ReadFile(TimezonePath); err == nil {
@@ -154,20 +162,41 @@ func SetZone(name string) error {
 		return fmt.Errorf("invalid or unknown timezone %q (see: sinty-timedate list-timezones)", name)
 	}
 
+	link := zoneLink()
 	target := filepath.Join("..", "usr", "share", "zoneinfo", name)
-	dir := filepath.Dir(LocaltimePath)
+	zonefile := TimezonePath
+	if link != LocaltimePath {
+		target = filepath.Join(ZoneinfoDir, name)
+		zonefile = filepath.Join(filepath.Dir(link), "timezone")
+	}
+	dir := filepath.Dir(link)
 	tmp := filepath.Join(dir, ".sinty-timedate-localtime")
 	_ = os.Remove(tmp)
 	if err := os.Symlink(target, tmp); err != nil {
 		return fmt.Errorf("create timezone symlink: %w", err)
 	}
-	if err := os.Rename(tmp, LocaltimePath); err != nil {
+	if err := os.Rename(tmp, link); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("install timezone symlink: %w", err)
 	}
 
-	if err := writeFileAtomic(TimezonePath, []byte(name+"\n"), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", TimezonePath, err)
+	if err := writeFileAtomic(zonefile, []byte(name+"\n"), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", zonefile, err)
 	}
 	return nil
+}
+
+func zoneLink() string {
+	link := LocaltimePath
+	for i := 0; i < 4; i++ {
+		target, err := os.Readlink(link)
+		if err != nil || strings.Contains(target, "zoneinfo/") {
+			return link
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(link), target)
+		}
+		link = filepath.Clean(target)
+	}
+	return link
 }

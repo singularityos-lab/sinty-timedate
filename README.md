@@ -52,15 +52,40 @@ a developer host that is not running `sinit`).
 The RTC time policy (UTC vs local) set by `set-local-rtc` is persisted in
 `/etc/sinty-timedate.conf`; everything else uses the standard system files.
 
+## Daemon
+
+`sinty-timedated` serves the same logic over D-Bus as `org.freedesktop.timedate1`,
+so the Date & Time settings and any client of the systemd API work without
+`systemd-timedated`. It implements `SetTime`, `SetTimezone`, `SetLocalRTC`,
+`SetNTP` and `ListTimezones`, and the `Timezone`, `LocalRTC`, `CanNTP`, `NTP`,
+`NTPSynchronized`, `TimeUSec` and `RTCTimeUSec` properties.
+
+Callers are authorized through polkit with the systemd action ids
+(`org.freedesktop.timedate1.set-time` and friends) when polkit is running, and
+by membership of `wheel` (or `sudo`, `admin`) when it is not. `SetTime` is
+refused while network time is active, as with systemd.
+
+Packaging files (bus policy, activation file, unit) are in `packaging/`.
+
+## Read-only /etc
+
+On SintyOS `/etc` is part of the verified image, so `/etc/localtime` is a
+symlink to `/var/lib/singularity/localtime`. When `/etc/localtime` points at a
+file outside the zoneinfo database, `set-timezone` (and `SetTimezone`) follows
+that link and rewrites the persistent target, storing the zone name next to it
+in `timezone`, instead of replacing `/etc/localtime` on a layer that does not
+survive a reboot.
+
 ## Build
 
-    make build            # ./sinty-timedate
+    make build            # ./sinty-timedate and ./sinty-timedated
     make static           # stripped static binary for the image
     make test
     go build ./...        # plain build
 
-Requires Go >= 1.25 and Linux. The only non-stdlib dependency is
-`golang.org/x/sys/unix`, for the RTC ioctls and `adjtimex`.
+Requires Go >= 1.25 and Linux. The non-stdlib dependencies are
+`golang.org/x/sys/unix`, for the RTC ioctls and `adjtimex`, and
+`github.com/godbus/dbus/v5` for the daemon.
 
 ## Use of Generative AI
 

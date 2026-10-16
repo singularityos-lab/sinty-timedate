@@ -1,6 +1,7 @@
 package timedate
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ func TestParseBoolArg(t *testing.T) {
 		"true": {true, false}, "TRUE": {true, false}, "yes": {true, false},
 		"on": {true, false}, "1": {true, false},
 		"false": {false, false}, "no": {false, false}, "off": {false, false},
-		"0": {false, false},
+		"0":     {false, false},
 		"maybe": {false, true}, "": {false, true},
 	}
 	for in, c := range cases {
@@ -97,3 +98,37 @@ func TestConfigRoundTrip(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestZoneIndirection(t *testing.T) {
+	dir := t.TempDir()
+	persistent := filepath.Join(dir, "var", "localtime")
+	if err := os.MkdirAll(filepath.Dir(persistent), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	etc := filepath.Join(dir, "etc")
+	if err := os.MkdirAll(etc, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldLocal, oldZone := LocaltimePath, TimezonePath
+	defer func() { LocaltimePath, TimezonePath = oldLocal, oldZone }()
+	LocaltimePath = filepath.Join(etc, "localtime")
+	TimezonePath = filepath.Join(etc, "timezone")
+	if err := os.Symlink("../var/localtime", LocaltimePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetZone("Europe/Rome"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.Readlink(LocaltimePath); got != "../var/localtime" {
+		t.Fatalf("the /etc link was replaced: %q", got)
+	}
+	if got, _ := os.Readlink(persistent); got != filepath.Join(ZoneinfoDir, "Europe/Rome") {
+		t.Fatalf("persistent link = %q", got)
+	}
+	if z := CurrentZone(); z != "Europe/Rome" {
+		t.Fatalf("CurrentZone = %q", z)
+	}
+	if _, err := os.Stat(TimezonePath); !os.IsNotExist(err) {
+		t.Fatal("the zone name must be written next to the persistent link")
+	}
+}
