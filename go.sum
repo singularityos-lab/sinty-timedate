@@ -1,4 +1,6 @@
 github.com/godbus/dbus/v5 v5.2.2 h1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=
 github.com/godbus/dbus/v5 v5.2.2/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110070824-24eabd60ec25 h1:zBPRa76X18iLY4uEwktfWPuPdPkLIXXErBA3Mvw3YL8=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110070824-24eabd60ec25/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
 golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=

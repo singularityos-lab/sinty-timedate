@@ -6,22 +6,22 @@ drop-in for the parts of `timedatectl` people actually use.
 
 ## Why it exists
 
-SintyOS does not boot with systemd. PID 1 is `sinit` and services are driven by
-`atomctl`. The stock `timedatectl` refuses to do anything in that world:
+SintyOS does not boot with systemd. PID 1 is `sinit` and services are driven
+through its control socket. The stock `timedatectl` refuses to do anything in that world:
 
     System has not been booted with systemd as init system (PID 1). Can't operate.
 
-`sinty-timedate` talks to the kernel, the zoneinfo database, the RTC, and
-`chrony`/`atomctl` directly, so it works under `sinit` with no systemd and no
-D-Bus dependency. Where systemd's tool leans on `systemd-timedated`, this one:
+`sinty-timedate` talks to the kernel, the zoneinfo database, the RTC and the
+`sinit` control socket directly, so it works under `sinit` with no systemd and
+no D-Bus dependency, and it runs no other program. Where systemd's tool leans on `systemd-timedated`, this one:
 
 - reads the clock via `clock_gettime` and sets it via `clock_settime`;
 - resolves the timezone from the `/etc/localtime` symlink and `/etc/timezone`;
 - reads and writes the RTC with the `RTC_RD_TIME` / `RTC_SET_TIME` ioctls on
-  `/dev/rtc0` (falling back to `hwclock` if no RTC device is reachable);
+  `/dev/rtc0`, then `/dev/rtc`;
 - reports "synchronized" from the kernel's own `adjtimex` status;
-- reports and toggles network time by driving `chrony.service` through
-  `atomctl` (`atomctl start|stop chrony.service`).
+- reports and toggles network time by starting and stopping `chrony.service`
+  over `/run/atom/control.sock`.
 
 ## Usage
 
@@ -46,8 +46,8 @@ D-Bus dependency. Where systemd's tool leans on `systemd-timedated`, this one:
 
 Privileged verbs check `EUID == 0` and fail with a clear message otherwise.
 `set-time` refuses while network time is active, exactly as `timedatectl` does.
-`set-ntp` is a no-op with a clear message when `atomctl` is not present (e.g. on
-a developer host that is not running `sinit`).
+`set-ntp` is a no-op with a clear message when the `sinit` control socket is
+not present, e.g. on a developer host.
 
 The RTC time policy (UTC vs local) set by `set-local-rtc` is persisted in
 `/etc/sinty-timedate.conf`; everything else uses the standard system files.
@@ -79,13 +79,14 @@ survive a reboot.
 ## Build
 
     make build            # ./sinty-timedate and ./sinty-timedated
-    make static           # stripped static binary for the image
+    make release          # stripped binaries for the image
     make test
     go build ./...        # plain build
 
-Requires Go >= 1.25 and Linux. The non-stdlib dependencies are
-`golang.org/x/sys/unix`, for the RTC ioctls and `adjtimex`, and
-`github.com/godbus/dbus/v5` for the daemon.
+Requires Go >= 1.25, Linux and cgo. The RTC, the kernel clock state and the
+sinit control socket go through `libsinty-system-core` from libsingularity,
+found with pkg-config as `sinty-system-1`. The other dependencies are
+`golang.org/x/sys/unix` and `github.com/godbus/dbus/v5` for the daemon.
 
 ## Use of Generative AI
 

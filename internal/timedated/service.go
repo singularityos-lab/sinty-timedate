@@ -45,7 +45,7 @@ type System struct{}
 func (System) Zone() string                 { return timedate.CurrentZone() }
 func (System) SetZone(name string) error    { return timedate.SetZone(name) }
 func (System) ListZones() ([]string, error) { return timedate.ListZones() }
-func (System) CanNTP() bool                 { return timedate.HasAtomctl() }
+func (System) CanNTP() bool                 { return timedate.HasServiceManager() }
 func (System) NTP() bool                    { return timedate.IsNTPActive() }
 func (System) SetNTP(enable bool) error     { return timedate.SetNTP(enable) }
 func (System) Synchronized() bool           { return timedate.IsSynchronized() }

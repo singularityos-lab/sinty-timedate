@@ -1,7 +1,7 @@
 // Command sinty-timedate is a native replacement for systemd's timedatectl,
 // built for SintyOS where PID 1 is sinit (not systemd) and services are driven
-// by atomctl. The stock timedatectl refuses to run without systemd as PID 1;
-// this talks to the kernel, zoneinfo, the RTC, and chrony/atomctl directly.
+// by its control socket. The stock timedatectl refuses to run without systemd as PID 1;
+// this talks to the kernel, zoneinfo, the RTC, and the sinit control socket directly.
 package main
 
 import (
@@ -110,8 +110,8 @@ func cmdSetNTP(args []string) int {
 		return fail("%v", timedate.RequireRoot("set-ntp"))
 	}
 	if err := timedate.SetNTP(enable); err != nil {
-		if errors.Is(err, timedate.ErrNoAtomctl) {
-			fmt.Fprintln(os.Stderr, "set-ntp: atomctl not found; not running under sinit, nothing to do")
+		if errors.Is(err, timedate.ErrNoServiceManager) {
+			fmt.Fprintln(os.Stderr, "set-ntp: not running under sinit, nothing to do")
 			return 0
 		}
 		return fail("set-ntp: %v", err)
@@ -161,7 +161,7 @@ Usage:
   sinty-timedate set-local-rtc true|false  keep the RTC in local time instead of UTC (root)
   sinty-timedate --help                    show this help
 
-Privileged commands require EUID 0. Network time is driven through atomctl
+Privileged commands require EUID 0. Network time is driven through sinit
 (chrony.service); the clock, timezone, and RTC are read and written directly,
 so this works without systemd.
 `)

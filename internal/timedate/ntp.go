@@ -2,57 +2,31 @@ package timedate
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/sys/unix"
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
 )
 
-// staUnsync is the kernel timex STA_UNSYNC flag: set while no time source has
-// disciplined the clock. It is not exported by x/sys/unix.
-const staUnsync = 0x0040
-
-// ntpService is the atomctl unit that provides network time on SintyOS.
 const ntpService = "chrony.service"
 
-// ErrNoAtomctl is returned by SetNTP when atomctl is not present, e.g. on a
-// developer host that is not running sinit.
-var ErrNoAtomctl = errors.New("atomctl not found on PATH")
+var controlSocket = "/run/atom/control.sock"
 
-// IsSynchronized reports whether the kernel clock has been disciplined by a
-// time source. It reads the kernel's own timex status via adjtimex, so it
-// reflects reality regardless of which daemon (chrony, ntpd, ...) is running
-// and needs no external binary. This is the same signal timedatectl surfaces
-// as "System clock synchronized".
+var ErrNoServiceManager = errors.New("the sinit control socket is not present")
+
 func IsSynchronized() bool {
-	var tx unix.Timex
-	state, err := unix.Adjtimex(&tx)
-	if err != nil {
-		return false
-	}
-	if state == unix.TIME_ERROR {
-		return false
-	}
-	return tx.Status&staUnsync == 0
+	s, err := sintysystem.Clock()
+	return err == nil && s.Synchronized
 }
 
-// IsNTPActive reports whether a network-time daemon is currently running. It
-// prefers chrony's own answer (`chronyc tracking` succeeds only when chronyd is
-// live) and falls back to scanning /proc for the chronyd process, so it works
-// even where the chronyc client is not installed.
 func IsNTPActive() bool {
-	if path, err := exec.LookPath("chronyc"); err == nil {
-		if err := exec.Command(path, "tracking").Run(); err == nil {
-			return true
-		}
+	if state, err := sintysystem.ServiceState(ntpService); err == nil {
+		return state == "active"
 	}
 	return processRunning("chronyd")
 }
 
-// processRunning reports whether any process has the given comm name.
 func processRunning(name string) bool {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
@@ -85,32 +59,18 @@ func isAllDigits(s string) bool {
 	return true
 }
 
-// HasAtomctl reports whether the atomctl service-manager CLI is available.
-func HasAtomctl() bool {
-	_, err := exec.LookPath("atomctl")
+func HasServiceManager() bool {
+	_, err := os.Stat(controlSocket)
 	return err == nil
 }
 
-// SetNTP enables or disables network time by starting or stopping chrony
-// through atomctl, the SintyOS service manager. It returns ErrNoAtomctl when
-// atomctl is absent so the caller can print a clear no-op message. Root only.
 func SetNTP(enable bool) error {
-	atomctl, err := exec.LookPath("atomctl")
-	if err != nil {
-		return ErrNoAtomctl
+	if !HasServiceManager() {
+		return ErrNoServiceManager
 	}
 	action := "stop"
 	if enable {
 		action = "start"
 	}
-	cmd := exec.Command(atomctl, action, ntpService)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return fmt.Errorf("atomctl %s %s: %s", action, ntpService, msg)
-	}
-	return nil
+	return sintysystem.ServiceControl(action, ntpService)
 }

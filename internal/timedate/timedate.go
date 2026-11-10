@@ -1,9 +1,9 @@
 // Package timedate implements the system-facing logic behind sinty-timedate:
 // reading and setting the system clock, timezone, RTC, and network-time state.
 //
-// It talks to the kernel and to chrony/atomctl directly and never depends on
+// It talks to the kernel and to the sinit control socket directly and never depends on
 // systemd or D-Bus, so it works as a drop-in for timedatectl on a de-systemd
-// system where PID 1 is sinit and services are driven by atomctl.
+// system where PID 1 is sinit.
 package timedate
 
 var (

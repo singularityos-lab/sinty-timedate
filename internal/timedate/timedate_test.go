@@ -59,11 +59,21 @@ func TestZoneFromPath(t *testing.T) {
 	}
 }
 
-func TestRTCRoundTrip(t *testing.T) {
-	want := time.Date(2026, time.July, 12, 22, 5, 30, 0, time.UTC)
-	got := rtcToTime(ptr(timeToRTC(want)))
-	if !got.Equal(want) {
-		t.Errorf("RTC round-trip = %v, want %v", got, want)
+func TestRTCRejectsImpossibleDates(t *testing.T) {
+	if err := WriteRTC(time.Date(1960, time.January, 1, 0, 0, 0, 0, time.UTC)); err == nil {
+		t.Error("a date before 1970 reached the RTC")
+	}
+}
+
+func TestNTPWithoutServiceManager(t *testing.T) {
+	old := controlSocket
+	controlSocket = t.TempDir() + "/none.sock"
+	defer func() { controlSocket = old }()
+	if HasServiceManager() {
+		t.Fatal("service manager found at a missing socket")
+	}
+	if err := SetNTP(true); err != ErrNoServiceManager {
+		t.Fatalf("SetNTP: %v", err)
 	}
 }
 
